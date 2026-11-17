@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>EMBERLINE — Tactical FPS</title>
+<style>
+  html,body{margin:0;padding:0;height:100%;overflow:hidden;background:#0b0e14;font-family:'Segoe UI',system-ui,sans-serif;color:#e8ecf1;}
+  #app{position:fixed;inset:0;}
+  canvas{display:block;}
+  .hidden{display:none !important;}
+  /* HUD */
+  #hud{position:fixed;inset:0;pointer-events:none;z-index:5;}
+  #crosshair{position:absolute;left:50%;top:50%;width:0;height:0;}
+  #crosshair .l{position:absolute;background:#e8ecf1;box-shadow:0 0 2px #000;}
+  #crosshair .dot{position:absolute;left:-1px;top:-1px;width:2px;height:2px;background:#ffb347;border-radius:50%;}
+  #hitmark{position:absolute;left:50%;top:50%;width:26px;height:26px;margin:-13px 0 0 -13px;opacity:0;}
+  #hitmark.on{opacity:1;}
+  #hitmark:before,#hitmark:after{content:"";position:absolute;left:12px;top:0;width:2px;height:26px;background:#ff5a3c;transform:rotate(45deg);}
+  #hitmark:after{transform:rotate(-45deg);}
+  #healthBox{position:absolute;left:24px;bottom:22px;}
+  #healthBox .label{font-size:11px;letter-spacing:2px;color:#9aa7b8;}
+  #healthNum{font-size:34px;font-weight:700;line-height:1;}
+  #armorNum{font-size:14px;color:#7fd4ff;margin-top:2px;}
+  #healthBar{width:220px;height:6px;background:#222a35;margin-top:6px;border-radius:3px;overflow:hidden;}
+  #healthFill{height:100%;background:#ffb347;width:100%;}
+  #ammoBox{position:absolute;right:24px;bottom:22px;text-align:right;}
+  #ammoBox .label{font-size:11px;letter-spacing:2px;color:#9aa7b8;}
+  #ammoNum{font-size:34px;font-weight:700;line-height:1;}
+  #ammoNum span{font-size:16px;color:#9aa7b8;}
+  #weaponName{font-size:14px;color:#ffb347;margin-top:2px;letter-spacing:1px;}
+  #timerBox{position:absolute;left:50%;top:14px;transform:translateX(-50%);text-align:center;}
+  #roundTimer{font-size:28px;font-weight:700;}
+  #roundTimer.planted{color:#ff5a3c;}
+  #scoreLine{font-size:13px;letter-spacing:1px;color:#c8d2de;}
+  #scoreLine b{color:#ffb347;}
+  #bombStatus{font-size:12px;letter-spacing:2px;color:#ff5a3c;margin-top:2px;}
+  #teamBox{position:absolute;left:24px;top:14px;font-size:13px;line-height:1.7;}
+  #teamBox .atk{color:#ffb347;} #teamBox .def{color:#7fd4ff;}
+  #moneyBox{position:absolute;right:24px;top:14px;text-align:right;font-size:13px;line-height:1.7;}
+  #moneyBox b{color:#7dff8a;font-size:18px;}
+  #killfeed{position:absolute;right:24px;top:86px;text-align:right;font-size:12px;line-height:1.8;color:#c8d2de;}
+  #killfeed .k{color:#ff5a3c;}
+  #hint{position:absolute;left:50%;bottom:96px;transform:translateX(-50%);font-size:13px;color:#c8d2de;text-shadow:0 1px 2px #000;}
+  #banner{position:absolute;left:50%;top:34%;transform:translate(-50%,-50%);text-align:center;text-shadow:0 2px 8px #000;}
+  #bannerTitle{font-size:44px;font-weight:800;letter-spacing:4px;}
+  #bannerSub{font-size:16px;color:#c8d2de;margin-top:6px;}
+  #centerMsg{position:absolute;left:50%;top:58%;transform:translateX(-50%);font-size:15px;color:#ffe9c9;text-shadow:0 1px 3px #000;}
+  /* Overlays */
+  .overlay{position:fixed;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;background:rgba(8,10,16,.72);backdrop-filter:blur(3px);}
+  .panel{width:640px;max-width:92vw;max-height:88vh;overflow:auto;background:#12161f;border:1px solid #2a3342;border-radius:10px;padding:28px 32px;box-shadow:0 12px 48px rgba(0,0,0,.6);}
+  .panel h1{margin:0 0 4px;font-size:34px;letter-spacing:6px;color:#ffb347;}
+  .panel h1 span{color:#7fd4ff;}
+  .panel h2{margin:0 0 12px;font-size:20px;letter-spacing:3px;}
+  .panel p{color:#b9c4d2;font-size:14px;line-height:1.6;}
+  .panel .keys{color:#8b98a9;font-size:12px;line-height:1.9;}
+  .panel .keys b{color:#e8ecf1;}
+  .btn{display:inline-block;margin-top:16px;padding:12px 28px;background:#ffb347;color:#14100a;border:0;border-radius:6px;font-size:16px;font-weight:700;letter-spacing:2px;cursor:pointer;}
+  .btn:hover{background:#ffc46b;}
+  .btn.ghost{background:transparent;color:#c8d2de;border:1px solid #3a4556;}
+  .buyGrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px;}
+  .buyItem{background:#1a2029;border:1px solid #2a3342;border-radius:8px;padding:10px 12px;cursor:pointer;pointer-events:auto;}
+  .buyItem:hover{border-color:#ffb347;}
+  .buyItem.owned{border-color:#7dff8a;}
+  .buyItem.cant{opacity:.45;cursor:not-allowed;}
+  .buyItem .nm{font-weight:700;font-size:14px;}
+  .buyItem .ds{font-size:12px;color:#9aa7b8;line-height:1.4;}
+  .buyItem .pr{color:#7dff8a;font-weight:700;font-size:13px;margin-top:2px;}
+  #buyMoney{color:#7dff8a;font-weight:700;}
+  #flash{position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:8;}
+  #dmgVin{position:fixed;inset:0;pointer-events:none;z-index:7;opacity:0;box-shadow:inset 0 0 90px 30px rgba(255,40,20,.55);}
+</style>
+<script type="importmap">
+{ "imports": { "three": "./three.module.min.js" } }
+</script>
+</head>
+<body>
+<div id="app"></div>
+<div id="flash"></div>
+<div id="dmgVin"></div>
+
+<div id="hud" class="hidden">
+  <div id="crosshair"><div class="l" id="chT"></div><div class="l" id="chB"></div><div class="l" id="chL"></div><div class="l" id="chR"></div><div class="dot"></div></div>
+  <div id="hitmark"></div>
+  <div id="healthBox"><div class="label">HEALTH</div><div id="healthNum">100</div><div id="armorNum"></div><div id="healthBar"><div id="healthFill"></div></div></div>
+  <div id="ammoBox"><div class="label">AMMO</div><div id="ammoNum">30 <span>/ 90</span></div><div id="weaponName">VK-47</div></div>
+  <div id="timerBox"><div id="roundTimer">1:40</div><div id="scoreLine"></div><div id="bombStatus"></div></div>
+  <div id="teamBox"></div>
+  <div id="moneyBox"><div>MONEY</div><b id="moneyNum">$800</b><div id="grenadeLine"></div></div>
+  <div id="killfeed"></div>
+  <div id="hint"></div>
+  <div id="banner" class="hidden"><div id="bannerTitle"></div><div id="bannerSub"></div></div>
+  <div id="centerMsg"></div>
+</div>
+
+<div id="startScreen" class="overlay">
+  <div class="panel">
+    <h1>EMBER<span>LINE</span></h1>
+    <p>A round-based tactical FPS. You are <b style="color:#ffb347">EMBER</b> — five attackers against five
+    defenders on the dusk-lit <b>Foundry Yard</b>. Plant the spike at Reactor (A) or Crane Dock (B),
+    or eliminate the whole defending team. Win rounds, earn money, buy better guns.</p>
+    <p class="keys">
+      <b>W A S D</b> move &nbsp;·&nbsp; <b>Mouse</b> aim &nbsp;·&nbsp; <b>Click</b> fire &nbsp;·&nbsp; <b>R</b> reload<br>
+      <b>Shift</b> walk quietly &nbsp;·&nbsp; <b>Ctrl / C</b> crouch &nbsp;·&nbsp; <b>1–5</b> switch weapon &nbsp;·&nbsp; <b>G</b> throw grenade<br>
+      <b>E</b> plant / defuse the spike &nbsp;·&nbsp; <b>B</b> buy menu (freeze time) &nbsp;·&nbsp; <b>Right-click</b> scope (Longbow)<br>
+      <b>Space</b> jump
+    </p>
+    <p>Stop to aim: firing on the move sprays wide, crouching steadies you, headshots deal double.
+    Bots run routes, hold angles and react to gunfire. First team to 5 rounds takes the match.</p>
+    <button class="btn" id="deployBtn">▶ DEPLOY — CLICK TO PLAY</button>
+    <p style="font-size:12px;color:#8b98a9">Best on desktop Chrome · WebGL 2 · no downloads, no network — everything runs from this page.</p>
+  </div>
+</div>
+
+<div id="buyMenu" class="overlay hidden">
+  <div class="panel">
+    <h2>BUY MENU <span style="float:right;font-size:14px;color:#7dff8a" id="buyMoney">$800</span></h2>
+    <p style="margin:0">Freeze time — spend your round money. Click an item or press its number key.</p>
+    <div class="buyGrid" id="buyGrid"></div>
+    <button class="btn ghost" id="closeBuyBtn">CLOSE [B]</button>
+  </div>
+</div>
+
+<div id="matchEnd" class="overlay hidden">
+  <div class="panel" style="text-align:center">
+    <h1 id="matchTitle">VICTORY</h1>
+    <p id="matchSub"></p>
+    <button class="btn" id="againBtn">PLAY AGAIN</button>
+  </div>
+</div>
+
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
